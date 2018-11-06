@@ -47,12 +47,16 @@ public class EventAggregator {
 	/**
 	 * Registers a standalone event handler that listens to events of type T.
 	 * The consumer can be provided in the following forms:
-	 * 1). A class implementing the Consumer<T> interface
+	 * 1). A class implementing the EventConsumer<T> interface
 	 * 2). A method reference adhering to Consumer<T>#accept's method signature, for instance, System.out::println
 	 * 3). A lambda expression, for instance, event -> {}
 	 */
-	public <T extends Event> void onEvent(Class<T> listenerClass, Consumer<T> action) {
-		chain.add(new ConsumerEventHandler<>(listenerClass, action));
+	public <T extends Event> void onEvent(Class<T> event, EventConsumer<T> action) {
+		chain.add(new EventConsumingHandler<>(event, action));
+	}
+
+	public <T extends Event> void onEvent(Class<T> event, Consumer<T> action) {
+		chain.add(new EventConsumingHandler<>(event, action::accept));
 	}
 
 	/**
@@ -77,28 +81,34 @@ public class EventAggregator {
 	 * - EventHandler methods must accept one argument of type Event
 	 */
 	private void register(Class<?> listenerClass, Object listener) {
-		Stream<Method> eventHandlerMethods = Arrays.stream(listenerClass.getMethods()).filter(m -> m.isAnnotationPresent(event.EventHandler.class));
+		Stream<Method> methods = Arrays.stream(listenerClass.getMethods()).filter(m -> m.isAnnotationPresent(event.EventHandler.class));
 
 		if (listener == null)
-			eventHandlerMethods = eventHandlerMethods.filter(m -> Modifier.isStatic(m.getModifiers()));
+			methods = methods.filter(m -> Modifier.isStatic(m.getModifiers()));
 		else
-			eventHandlerMethods = eventHandlerMethods.filter(m -> !Modifier.isStatic(m.getModifiers()));
+			methods = methods.filter(m -> !Modifier.isStatic(m.getModifiers()));
 
-		List<EventHandler> handlers = eventHandlerMethods.map(method -> {
+		List<EventHandler> handlers = methods.map(method -> {
 
-			if (method.getParameterCount() != 1)
+			if (method.getParameterCount() != 1) {
 				throw new IllegalArgumentException("EventHandler methods must accept only one argument. Invalid method " + method);
+			}
 
-			Class<?> eventClass = method.getParameterTypes()[0];
-			if (!Event.class.isAssignableFrom(eventClass))
+			Class<?> type = method.getParameterTypes()[0];
+
+			if (!Event.class.isAssignableFrom(type)) {
 				throw new IllegalArgumentException("Argument type is not an Event nor a subclass of it. Invalid method " + method);
+			}
 
-			method.setAccessible(true);
 			try {
-				MethodHandle methodHandle = lookup.unreflect(method);
+				method.setAccessible(true);
+
+				MethodHandle handle = lookup.unreflect(method);
+
 				if (listener != null)
-					methodHandle = methodHandle.bindTo(listener);
-				return new MethodEventHandler(eventClass, methodHandle, listener);
+					handle = handle.bindTo(listener);
+
+				return new EventConsumingHandler<>(type, handle::invoke);
 			} catch (IllegalAccessException ex) {
 				throw new IllegalStateException("Method " + method + " is not accessible", ex);
 			}
@@ -113,8 +123,6 @@ public class EventAggregator {
 	/**
 	 * Represents a predicate and consumer for event handling;
 	 * if an event is accepted by a handler, the handler shall be invoked in response to the event.
-	 *
-	 * Package private as implementation is internal.
 	 */
 	private interface EventHandler {
 
@@ -124,19 +132,19 @@ public class EventAggregator {
 
 	}
 
-	private static final class ConsumerEventHandler<T> implements EventHandler {
+	private static final class EventConsumingHandler<T> implements EventHandler {
 
 		/**
 		 * The type of events to handle
 		 */
-		final Class<T> adapter;
+		private final Class<T> adapter;
 
 		/**
 		 * The action to invoke in response to the event
 		 */
-		final Consumer<T> action;
+		private final EventConsumer<T> action;
 
-		ConsumerEventHandler(Class<T> adapter, Consumer<T> action) {
+		EventConsumingHandler(Class<T> adapter, EventConsumer<T> action) {
 			this.adapter = adapter;
 			this.action = action;
 		}
@@ -148,43 +156,7 @@ public class EventAggregator {
 
 		@Override
 		public void invoke(Event event) throws Throwable {
-			action.accept((T) event);
-		}
-
-	}
-
-	private static final class MethodEventHandler implements EventHandler {
-
-		/**
-		 * The type of events to handle.
-		 */
-		final Class<?> adapter;
-
-		/**
-		 * The method to invoke in response to the event.
-		 */
-		final MethodHandle handle;
-
-		/**
-		 * This object may be null.
-		 * A reference to the object (if any) which is to invoke the event handling method in order to prevent GC.
-		 */
-		final Object instance;
-
-		MethodEventHandler(Class<?> adapter, MethodHandle handle, Object instance) {
-			this.adapter = adapter;
-			this.handle = handle;
-			this.instance = instance;
-		}
-
-		@Override
-		public boolean accepts(Event event) {
-			return adapter.isInstance(event);
-		}
-
-		@Override
-		public void invoke(Event event) throws Throwable {
-			handle.invoke(event);
+			action.acceptOrThrow((T) event);
 		}
 
 	}
