@@ -30,6 +30,8 @@ EventAggregator aggregator = ...;
 aggregator.register(MyEventHandler.class); //register static methods
 ...
 aggregator.register(new MyEventHandler()); //register instance methods
+...
+aggregator.onEvent(MyEvent.class, event -> {...}); //register a standalone event handler 
 ```
 
 - Dispatch events to interested parties (event handlers)

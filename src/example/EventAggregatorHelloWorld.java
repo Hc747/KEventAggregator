@@ -10,13 +10,21 @@ import java.util.List;
 public final class EventAggregatorHelloWorld {
 
 	public static void main(String[] args) {
-
 		final EventAggregator aggregator = new EventAggregator();
 
 		aggregator.register(EventAggregatorHelloWorld.class); //register static methods belonging to the class 'EventAggregatorHelloWorld'
 		aggregator.register(new GoodbyeGreeter()); //register instance methods belonging to the 'GoodbyeGreeter' object
 
-		List<Event> events = Arrays.asList(new GreetingEvent("World"), new GreetingEvent("Harrison"));
+		aggregator.onEvent(ExitEvent.class, (event) -> {
+			System.out.println(String.format("Exit request received with code: %d", event.code));
+			System.exit(event.code);
+		});
+
+		List<Event> events = Arrays.asList(
+				new GreetingEvent("World"),
+				new GreetingEvent("Harrison"),
+				new ExitEvent(0)
+		);
 
 		events.forEach(aggregator::dispatch);
 	}

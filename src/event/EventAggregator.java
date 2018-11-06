@@ -4,8 +4,11 @@ import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
-import java.util.*;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Consumer;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
@@ -39,6 +42,17 @@ public class EventAggregator {
 				logger.log(Level.WARNING, String.format("An exception occurred whilst processing an event of type: %s - data: %s", event.getClass().getSimpleName(), event), e);
 			}
 		});
+	}
+
+	/**
+	 * Registers a standalone event handler that listens to events of type T.
+	 * The consumer can be provided in the following forms:
+	 * 1). A class implementing the Consumer<T> interface.
+	 * 2). A method reference adhering to Consumer<T>#accept's method signature
+	 * 3). A lambda expression, for instance, event -> System.out::println
+	 */
+	public <T extends Event> void onEvent(Class<T> listenerClass, Consumer<T> action) {
+		chain.add(new ConsumerEventHandler<>(listenerClass, action));
 	}
 
 	/**
@@ -110,10 +124,39 @@ public class EventAggregator {
 
 	}
 
+	private static final class ConsumerEventHandler<T> implements EventHandler {
+
+		/**
+		 * The type of events to handle
+		 */
+		final Class<T> adapter;
+
+		/**
+		 * The action to invoke in response to the event
+		 */
+		final Consumer<T> action;
+
+		ConsumerEventHandler(Class<T> adapter, Consumer<T> action) {
+			this.adapter = adapter;
+			this.action = action;
+		}
+
+		@Override
+		public boolean accepts(Event event) {
+			return adapter.isInstance(event);
+		}
+
+		@Override
+		public void invoke(Event event) throws Throwable {
+			action.accept((T) event);
+		}
+
+	}
+
 	private static final class MethodEventHandler implements EventHandler {
 
 		/**
-		 * The class of events to handle.
+		 * The type of events to handle.
 		 */
 		final Class<?> adapter;
 
