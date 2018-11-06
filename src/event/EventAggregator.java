@@ -47,9 +47,9 @@ public class EventAggregator {
 	/**
 	 * Registers a standalone event handler that listens to events of type T.
 	 * The consumer can be provided in the following forms:
-	 * 1). A class implementing the Consumer<T> interface.
-	 * 2). A method reference adhering to Consumer<T>#accept's method signature
-	 * 3). A lambda expression, for instance, event -> System.out::println
+	 * 1). A class implementing the Consumer<T> interface
+	 * 2). A method reference adhering to Consumer<T>#accept's method signature, for instance, System.out::println
+	 * 3). A lambda expression, for instance, event -> {}
 	 */
 	public <T extends Event> void onEvent(Class<T> listenerClass, Consumer<T> action) {
 		chain.add(new ConsumerEventHandler<>(listenerClass, action));
