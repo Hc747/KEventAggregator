@@ -50,11 +50,16 @@ public class EventAggregator {
 	 * 1). A class implementing the EventConsumer<T> interface
 	 * 2). A method reference adhering to Consumer<T>#accept's method signature, for instance, System.out::println
 	 * 3). A lambda expression, for instance, event -> {}
+	 *
+	 * This method accepts calls with checked exceptions.
 	 */
 	public <T extends Event> void onEvent(Class<T> event, EventConsumer<T> action) {
 		chain.add(new EventConsumingHandler<>(event, action));
 	}
 
+	/**
+	 * Same documentation as the method above, however, this method does not accept calls with checked exceptions.
+	 */
 	public <T extends Event> void onEvent(Class<T> event, Consumer<T> action) {
 		chain.add(new EventConsumingHandler<>(event, action::accept));
 	}
