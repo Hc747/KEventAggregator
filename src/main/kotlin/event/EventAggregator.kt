@@ -20,30 +20,22 @@ class EventAggregator {
     //    private val lookup = MethodHandles.lookup()!! //TODO: when method handles are stable use the proper API
     private val chain = ConcurrentHashMap.newKeySet<EventHandler>()!!
 
-    fun dispatch(event: Event) {
-        chain.filter { it.accepts(event) }.forEach { handler -> handler.invoke(event) }
-    }
-
-    fun dispatchAll(events: List<Event>) {
-        events.forEach(::dispatch)
-    }
-
     @JvmOverloads
-    fun dispatchAsync(event: Event, executor: ExecutorService? = null): CompletableFuture<Void> {
-        val tasks = chain.filter { it.accepts(event) }.map { handler ->
-            val task = Runnable { handler.invoke(event) }
+    fun dispatch(event: Event, executor: ExecutorService? = null, async: Boolean = true): CompletableFuture<Void> {
+        val tasks = chain.filter { it.accepts(event) }.map { handler -> Runnable { handler.invoke(event) } }
 
-            if (executor == null)
-                CompletableFuture.runAsync(task)
-            else
-                CompletableFuture.runAsync(task, executor)
+        if (async) {
+            return CompletableFuture.allOf(*tasks.map { task -> if (executor == null) CompletableFuture.runAsync(task) else CompletableFuture.runAsync(task, executor) }.toTypedArray())
         }
-        return CompletableFuture.allOf(*tasks.toTypedArray())
+
+        tasks.forEach(Runnable::run)
+
+        return CompletableFuture.completedFuture(null)
     }
 
     @JvmOverloads
-    fun dispatchAllAsync(events: List<Event>, executor: ExecutorService? = null): CompletableFuture<Void> {
-        return CompletableFuture.allOf(*events.map { event -> dispatchAsync(event, executor) }.toTypedArray())
+    fun dispatchAll(events: List<Event>, executor: ExecutorService? = null, async: Boolean = true): CompletableFuture<Void> {
+        return CompletableFuture.allOf(*events.map { event -> dispatch(event, executor, async) }.toTypedArray())
     }
 
     fun <T : Event> onEvent(event: KClass<T>, action: (T) -> Unit) {

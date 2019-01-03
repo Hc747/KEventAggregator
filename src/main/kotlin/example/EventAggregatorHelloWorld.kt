@@ -32,12 +32,12 @@ object EventAggregatorHelloWorld {
         )
 
         //dispatch events in a thread blocking manner (synchronously); execution time: ~10 seconds
-        aggregator.dispatchAll(events)
+        aggregator.dispatchAll(events, async = false)
 
         //dispatch events in a non-blocking manner (asynchronously); execution time: ~5 seconds
-        val job = aggregator.dispatchAllAsync(events).thenRunAsync { aggregator.dispatch(ExitEvent(0)) }
+        val job = aggregator.dispatchAll(events, async = true).thenRunAsync { aggregator.dispatch(ExitEvent(0)) }
 
-        job.get(5, TimeUnit.SECONDS)
+        job.get(5500, TimeUnit.MILLISECONDS)
     }
 
     @JvmStatic
