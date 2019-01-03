@@ -99,6 +99,9 @@ class EventAggregator {
 //        logger.info(String.format("Registered %d event(s) %s %s.", handlers.size, if (listener == null) "to the class" else "to an instance of the class", class.simpleName))
     }
 
+    //TODO: builder implementation / DSL allowing for:
+    // - removal from aggregator chain
+    // - exception handling
     private interface EventHandler {
 
         fun accepts(event: Event): Boolean
