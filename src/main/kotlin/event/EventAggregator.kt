@@ -15,27 +15,32 @@ import kotlin.reflect.KClass
  * - https://martinfowler.com/eaaDev/EventAggregator.html
  * - https://github.com/Discord4J/Discord4J/blob/master/src/main/java/sx/blah/discord/api/events/EventDispatcher.java
  */
+enum class ExecutionMode {
+    CONCURRENT,
+    BLOCKING
+}
+
 class EventAggregator {
 
     //    private val lookup = MethodHandles.lookup()!! //TODO: when method handles are stable use the proper API
     private val chain = ConcurrentHashMap.newKeySet<EventHandler>()!!
 
     @JvmOverloads
-    fun dispatch(event: Event, executor: ExecutorService? = null, async: Boolean = true): CompletableFuture<Void> {
+    fun dispatch(event: Event, executor: ExecutorService? = null, mode: ExecutionMode = ExecutionMode.CONCURRENT): CompletableFuture<Void> {
         val tasks = chain.filter { it.accepts(event) }.map { handler -> Runnable { handler.invoke(event) } }
 
-        if (async) {
-            return CompletableFuture.allOf(*tasks.map { task -> if (executor == null) CompletableFuture.runAsync(task) else CompletableFuture.runAsync(task, executor) }.toTypedArray())
+        return when (mode) {
+            ExecutionMode.CONCURRENT -> CompletableFuture.allOf(*tasks.map { task -> if (executor == null) CompletableFuture.runAsync(task) else CompletableFuture.runAsync(task, executor) }.toTypedArray())
+            else -> {
+                tasks.forEach(Runnable::run)
+                CompletableFuture.completedFuture(null)
+            }
         }
-
-        tasks.forEach(Runnable::run)
-
-        return CompletableFuture.completedFuture(null)
     }
 
     @JvmOverloads
-    fun dispatchAll(events: List<Event>, executor: ExecutorService? = null, async: Boolean = true): CompletableFuture<Void> {
-        return CompletableFuture.allOf(*events.map { event -> dispatch(event, executor, async) }.toTypedArray())
+    fun dispatchAll(events: List<Event>, executor: ExecutorService? = null, mode: ExecutionMode = ExecutionMode.CONCURRENT): CompletableFuture<Void> {
+        return CompletableFuture.allOf(*events.map { event -> dispatch(event, executor, mode) }.toTypedArray())
     }
 
     fun <T : Event> onEvent(event: KClass<T>, action: (T) -> Unit) {

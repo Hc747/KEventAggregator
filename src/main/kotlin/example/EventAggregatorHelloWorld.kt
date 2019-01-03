@@ -2,6 +2,7 @@ package example
 
 import event.EventAggregator
 import event.EventHandler
+import event.ExecutionMode
 import java.util.concurrent.ExecutionException
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.TimeoutException
@@ -32,10 +33,10 @@ object EventAggregatorHelloWorld {
         )
 
         //dispatch events in a thread blocking manner (synchronously); execution time: ~10 seconds
-        aggregator.dispatchAll(events, async = false)
+        aggregator.dispatchAll(events, mode = ExecutionMode.BLOCKING)
 
         //dispatch events in a non-blocking manner (asynchronously); execution time: ~5 seconds
-        val job = aggregator.dispatchAll(events, async = true).thenRunAsync { aggregator.dispatch(ExitEvent(0)) }
+        val job = aggregator.dispatchAll(events, mode = ExecutionMode.CONCURRENT).thenRunAsync { aggregator.dispatch(ExitEvent(0)) }
 
         job.get(5500, TimeUnit.MILLISECONDS)
     }
