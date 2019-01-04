@@ -1,10 +1,11 @@
 package example
 
+import event.DispatchMode
+import event.Event
 import event.EventAggregator
 import event.EventHandler
-import event.ExecutionMode
+import java.util.*
 import java.util.concurrent.ExecutionException
-import java.util.concurrent.TimeUnit
 import java.util.concurrent.TimeoutException
 import kotlin.system.exitProcess
 
@@ -33,45 +34,54 @@ object EventAggregatorHelloWorld {
         )
 
         //dispatch events in a thread blocking manner (synchronously); execution time: ~10 seconds
-        aggregator.dispatchAll(events, mode = ExecutionMode.BLOCKING)
-
+        aggregator.dispatchAll(events, mode = DispatchMode.BLOCKING)
         //dispatch events in a non-blocking manner (asynchronously); execution time: ~5 seconds
-        val job = aggregator.dispatchAll(events, mode = ExecutionMode.CONCURRENT).thenRunAsync { aggregator.dispatch(ExitEvent(0)) }
+        aggregator.dispatchAll(events, mode = DispatchMode.PARALLEL).whenComplete { _, _ -> aggregator.dispatch(ExitEvent()) }
 
-        job.get(5500, TimeUnit.MILLISECONDS)
+        while (true) {
+            println("${Thread.currentThread().name} thread suspended")
+            Thread.currentThread().suspend()//in a loop to illustrate that it's only called once
+        }
+    }
+
+    @JvmStatic
+    @EventHandler
+    fun Logger(event: Event) {
+        println("[LOGGER] Received event: $event at ${Date().toInstant()} on thread ${Thread.currentThread().name}")
     }
 
     @JvmStatic
     @EventHandler
     @Throws(InterruptedException::class)
     fun BlockingGreeter(event: GreetingEvent) {
+        println("Starting blocking for 5 seconds, ${event.who}")
         Thread.sleep(5000)
-        println(String.format("Blocked for 5 seconds, %s", event.who))
+        println("Done blocking for 5 seconds, ${event.who}")
     }
 
     @JvmStatic
     @EventHandler
     fun FrenchGreeter(event: GreetingEvent) {
-        println(String.format("Bonjour %s", event.who))
+        println("Bonjour ${event.who}")
     }
 
     @JvmStatic
     @EventHandler
     fun EnglishGreeter(event: GreetingEvent) {
-        println(String.format("Hello %s", event.who))
+        println("Hello ${event.who}")
     }
 
     @JvmStatic
     @EventHandler
     fun GermanGreeter(event: GreetingEvent) {
-        println(String.format("Hallo %s", event.who))
+        println("Hallo ${event.who}")
     }
 
     class GoodbyeGreeter {
 
         @EventHandler
         fun sayGoodbye(event: GreetingEvent) {
-            println(String.format("Goodbye %s", event.who))
+            println("Goodbye ${event.who}")
         }
 
     }

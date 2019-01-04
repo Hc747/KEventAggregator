@@ -37,9 +37,9 @@ aggregator.onEvent(MyEvent.class, event -> {...}); //register a standalone event
 
 - Dispatch events to interested parties (event handlers)
 ```Java
-aggregator.dispatch(event, executor_service, execution_mode);
+aggregator.dispatch(event, executor_service, dispatch_mode);
 ...
-aggregator.dispatchAll(events, executor_service, execution_mode);
+aggregator.dispatchAll(events, executor_service, dispatch_mode);
 ```
 
 ## Kotlin
@@ -69,9 +69,9 @@ aggregator.onEvent(MyEvent::class/*.java*/) { event -> ... } //register a standa
 
 - Dispatch events to interested parties (event handlers)
 ```Kotlin
-aggregator.dispatch(event, executor_service, execution_mode)
+aggregator.dispatch(event, executor_service, dispatch_mode)
 ...
-aggregator.dispatchAll(events, executor_service, execution_mode)
+aggregator.dispatchAll(events, executor_service, dispatch_mode)
 ```
 
 # A reference implementation is provided in the 'example' package.

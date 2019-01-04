@@ -15,31 +15,35 @@ import kotlin.reflect.KClass
  * - https://martinfowler.com/eaaDev/EventAggregator.html
  * - https://github.com/Discord4J/Discord4J/blob/master/src/main/java/sx/blah/discord/api/events/EventDispatcher.java
  */
-enum class ExecutionMode {
-    CONCURRENT,
+enum class DispatchMode {
+    PARALLEL,
     BLOCKING
 }
 
+//TODO: look into CompletableDeferred / Deferred
 class EventAggregator {
 
     //    private val lookup = MethodHandles.lookup()!! //TODO: when method handles are stable use the proper API
     private val chain = ConcurrentHashMap.newKeySet<EventHandler>()!!
 
     @JvmOverloads
-    fun dispatch(event: Event, executor: ExecutorService? = null, mode: ExecutionMode = ExecutionMode.CONCURRENT): CompletableFuture<Void> {
-        val tasks = chain.filter { it.accepts(event) }.map { handler -> Runnable { handler.invoke(event) } }
+    fun dispatch(event: Event, executor: ExecutorService? = null, mode: DispatchMode = DispatchMode.PARALLEL): CompletableFuture<Void> {
+        val handlers = chain.filter { handler -> handler.accepts(event) }
 
         return when (mode) {
-            ExecutionMode.CONCURRENT -> CompletableFuture.allOf(*tasks.map { task -> if (executor == null) CompletableFuture.runAsync(task) else CompletableFuture.runAsync(task, executor) }.toTypedArray())
-            else -> {
-                tasks.forEach(Runnable::run)
+            DispatchMode.PARALLEL -> {
+                val tasks = handlers.map { handler -> if (executor == null) CompletableFuture.runAsync { handler.invoke(event) } else CompletableFuture.runAsync(Runnable { handler.invoke(event) }, executor)}
+                CompletableFuture.allOf(*tasks.toTypedArray())
+            }
+            DispatchMode.BLOCKING -> {
+                handlers.forEach { handler -> handler.invoke(event) }
                 CompletableFuture.completedFuture(null)
             }
         }
     }
 
     @JvmOverloads
-    fun dispatchAll(events: List<Event>, executor: ExecutorService? = null, mode: ExecutionMode = ExecutionMode.CONCURRENT): CompletableFuture<Void> {
+    fun dispatchAll(events: List<Event>, executor: ExecutorService? = null, mode: DispatchMode = DispatchMode.PARALLEL): CompletableFuture<Void> {
         return CompletableFuture.allOf(*events.map { event -> dispatch(event, executor, mode) }.toTypedArray())
     }
 
