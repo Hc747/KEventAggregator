@@ -40,6 +40,7 @@ object EventAggregatorHelloWorld {
 
         while (true) {
             println("${Thread.currentThread().name} thread suspended")
+            //suspend the main thread to prevent termination of the program
             Thread.currentThread().suspend()//in a loop to illustrate that it's only called once
         }
     }
