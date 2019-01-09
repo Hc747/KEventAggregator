@@ -32,7 +32,7 @@ class EventAggregator {
 
         return when (mode) {
             DispatchMode.PARALLEL -> {
-                val tasks = handlers.map { handler -> if (executor == null) CompletableFuture.runAsync { handler.invoke(event) } else CompletableFuture.runAsync(Runnable { handler.invoke(event) }, executor)}
+                val tasks = handlers.map { handler -> if (executor == null) CompletableFuture.runAsync { handler.invoke(event) } else CompletableFuture.runAsync(Runnable { handler.invoke(event) }, executor) }
                 CompletableFuture.allOf(*tasks.toTypedArray())
             }
             DispatchMode.BLOCKING -> {
@@ -69,8 +69,7 @@ class EventAggregator {
 
     private fun register(`class`: Class<*>, listener: Any?) {
         val methods = `class`.methods
-                .filter { if (listener == null) Modifier.isStatic(it.modifiers) else !Modifier.isStatic(it.modifiers) }
-                .filter { it.isAnnotationPresent(event.EventHandler::class.java) }
+                .filter { (if (listener == null) Modifier.isStatic(it.modifiers) else !Modifier.isStatic(it.modifiers)) && it.isAnnotationPresent(event.EventHandler::class.java) }
 
         val handlers = methods.map { method ->
 
